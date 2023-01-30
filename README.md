@@ -23,7 +23,7 @@ Icon taken from `https://www.freepik.com/`
 
 ## Usage
 
-Edit the `Config.ini` with your screen resolution It is set to h/w 3840x2160 by default.
+Edit the `Config.ini` with your screen resolution It is set to w/h 3840x2160 by default.
 
 You can use Windows Task Scheduler to run at startup.
 
