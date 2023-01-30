@@ -19,6 +19,7 @@ https://user-images.githubusercontent.com/121936658/215395191-d19b1969-13a0-4cdb
 
 Compiled as a windows executable only using pyinstaller check `releases` or self compile.
 
+Icon taken from `https://www.freepik.com/`
 
 ## Usage
 
