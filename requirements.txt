@@ -1,0 +1,6 @@
+PyQt5
+pynput
+pathlib
+pynput
+pywin32
+configparser
