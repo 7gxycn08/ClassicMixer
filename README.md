@@ -1,3 +1,6 @@
+![sound](https://user-images.githubusercontent.com/121936658/215396835-ba7215f7-2051-4953-ac5a-e3818388bfd4.png)
+
+
 # ClassicMixer
 Restores Classic Volume Mixer On Windows 11.
 
