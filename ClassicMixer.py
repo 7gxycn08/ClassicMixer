@@ -1,10 +1,9 @@
 import subprocess
 import sys
 import os
-import win32gui
-import win32con
 import time
 import configparser
+import pyautogui
 from threading import Thread
 from PyQt5.QtWidgets import QMenu, QSystemTrayIcon,QApplication
 from PyQt5.QtGui import QIcon
@@ -15,6 +14,7 @@ config = configparser.ConfigParser()
 config.read('Config.ini')
 screen_width = int(config['MainConfig']['screen_width'])
 screen_height = int(config['MainConfig']['screen_height'])
+spawn = float(config['MainConfig']['spawn'])
 process = None
 flag = True
 script_path = Path(__file__).parent.absolute()
@@ -60,25 +60,19 @@ def Tray_Icon():
             while flag:
                 listener.join()
 
-    def write_to_config(xpos,ypos):
-        config['MainConfig']['xpos'] = str(xpos)
-        config['MainConfig']['ypos'] = str(ypos)
-        with open('Config.ini', 'w') as configfile:
-            config.write(configfile)
+    def move_window_to_bottom_right(process_name):
+        window = pyautogui.getWindowsWithTitle(process_name)[0]
+        screen_width, screen_height = pyautogui.size()
+        window.moveTo(screen_width - window.width, screen_height - window.height)
 
     def onDoubleClick(reason):
-        global flag
+        global flag,spawn,screen_width,screen_height
         if reason == QSystemTrayIcon.DoubleClick:
             process = Thread(target=lambda: subprocess.Popen('sndvol.exe', creationflags=0x08000000), daemon=True)
             process.start()
-            time.sleep(0.12)
-            hwnd = win32gui.GetForegroundWindow()
-            win32gui.SetForegroundWindow(hwnd)
-            w, h = win32gui.GetWindowRect(hwnd)[2:]
-            xpos = screen_width - w
-            ypos = screen_height - h
-            win32gui.SetWindowPos(hwnd, None, xpos, ypos, 0, 0, win32con.SWP_NOSIZE | win32con.SWP_NOZORDER)
-            Thread(target=write_to_config,args=(xpos,ypos),daemon=True).start()
+            time.sleep(spawn)
+            process_name = "volume mixer"
+            move_window_to_bottom_right(process_name)
             flag = True
             start_mouse_listener()
 
