@@ -4,7 +4,6 @@ import os
 import time
 import configparser
 import pyautogui
-from threading import Thread
 from PyQt5.QtWidgets import QMenu, QSystemTrayIcon,QApplication
 from PyQt5.QtGui import QIcon
 from pathlib import Path
@@ -38,43 +37,42 @@ def Tray_Icon():
         app.exit()
         sys.exit()
 
-    def on_click(x, y, button, pressed):
+    def on_click(x, y, x_min, y_min, x_max, y_max, button, pressed):
         global flag
         if not pressed:
             return
 
-        # Specify the region of interest (ROI)
-        x_min = 2936
-        y_min = 1392
-        x_max = x_min + 878
-        y_max = y_min + 716
-
         # Check if the click occurred outside the ROI
         if x < x_min or x > x_max or y < y_min or y > y_max:
-            subprocess.call('taskkill /im sndvol.exe /F',creationflags=0x08000000)
+            subprocess.call('taskkill /im sndvol.exe /F', creationflags=0x08000000)
             flag = False
             return False
 
-    def start_mouse_listener():
-        with mouse.Listener(on_click=on_click) as listener:
+    def start_mouse_listener(x_min, y_min, x_max, y_max):
+        global flag
+        flag = True
+        with mouse.Listener(on_click=lambda x, y, button, pressed: on_click(x, y, x_min, y_min, x_max, y_max, button,
+                                                                            pressed)) as listener:
             while flag:
                 listener.join()
 
     def move_window_to_bottom_right(process_name):
         window = pyautogui.getWindowsWithTitle(process_name)[0]
         screen_width, screen_height = pyautogui.size()
-        window.moveTo(screen_width - window.width, screen_height - window.height)
+        x_min, y_min = screen_width - window.width, screen_height - window.height
+        x_max, y_max = screen_width, screen_height
+        window.moveTo(x_min, y_min)
+        return x_min, y_min, x_max, y_max
 
     def onDoubleClick(reason):
         global flag,spawn,screen_width,screen_height
         if reason == QSystemTrayIcon.DoubleClick:
-            process = Thread(target=lambda: subprocess.Popen('sndvol.exe', creationflags=0x08000000), daemon=True)
-            process.start()
+            subprocess.Popen('sndvol.exe')
             time.sleep(spawn)
             process_name = "volume mixer"
-            move_window_to_bottom_right(process_name)
+            x_min, y_min, x_max, y_max = move_window_to_bottom_right(process_name)
             flag = True
-            start_mouse_listener()
+            start_mouse_listener(x_min, y_min, x_max, y_max)
 
     app = QApplication(sys.argv)
 
