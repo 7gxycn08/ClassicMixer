@@ -14,7 +14,6 @@ config.read('Config.ini')
 screen_width = int(config['MainConfig']['screen_width'])
 screen_height = int(config['MainConfig']['screen_height'])
 spawn = float(config['MainConfig']['spawn'])
-process = None
 flag = True
 script_path = Path(__file__).parent.absolute()
 
@@ -31,7 +30,7 @@ def resource_path(relative_path):
 res_path = resource_path(script_path)
 
 def Tray_Icon():
-    global width_of_window,height_of_window,process,screen_width,screen_height
+    global process,screen_width,screen_height
     def close_tray_icon():
         tray_icon.hide()
         app.exit()
