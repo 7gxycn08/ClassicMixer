@@ -14,6 +14,7 @@ config.read('Config.ini')
 screen_width = int(config['MainConfig']['screen_width'])
 screen_height = int(config['MainConfig']['screen_height'])
 spawn = float(config['MainConfig']['spawn'])
+movable = str(config['MainConfig']['moveable'])
 flag = True
 script_path = Path(__file__).parent.absolute()
 
@@ -37,15 +38,19 @@ def Tray_Icon():
         sys.exit()
 
     def on_click(x, y, x_min, y_min, x_max, y_max, button, pressed):
-        global flag
-        if not pressed:
-            return
-
-        # Check if the click occurred outside the ROI
-        if x < x_min or x > x_max or y < y_min or y > y_max:
-            subprocess.call('taskkill /im sndvol.exe /F', creationflags=0x08000000)
+        global flag,movable
+        if movable == "True":
             flag = False
-            return False
+            return
+        else:
+            if not pressed:
+                return
+            # Check if the click occurred outside the ROI
+
+            if x < x_min or x > x_max or y < y_min or y > y_max:
+                subprocess.call('taskkill /im sndvol.exe /F', creationflags=0x08000000)
+                flag = False
+                return
 
     def start_mouse_listener(x_min, y_min, x_max, y_max):
         global flag
@@ -53,7 +58,8 @@ def Tray_Icon():
         with mouse.Listener(on_click=lambda x, y, button, pressed: on_click(x, y, x_min, y_min, x_max, y_max, button,
                                                                             pressed)) as listener:
             while flag:
-                listener.join()
+                time.sleep(0.1)
+                continue
 
     def move_window_to_bottom_right(process_name):
         window = pyautogui.getWindowsWithTitle(process_name)[0]
