@@ -66,7 +66,7 @@ def Tray_Icon():
 
     def onDoubleClick(reason):
         global flag,spawn,screen_width,screen_height
-        if reason == QSystemTrayIcon.DoubleClick:
+        if reason == QSystemTrayIcon.Trigger:
             subprocess.Popen('sndvol.exe')
             time.sleep(spawn)
             process_name = "volume mixer"
