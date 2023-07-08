@@ -1,6 +1,7 @@
 import subprocess
 import sys
 import os
+import threading
 import time
 import configparser
 import pyautogui
@@ -11,9 +12,6 @@ from pynput import mouse
 
 config = configparser.ConfigParser()
 config.read('Config.ini')
-screen_width = int(config['MainConfig']['screen_width'])
-screen_height = int(config['MainConfig']['screen_height'])
-spawn = float(config['MainConfig']['spawn'])
 movable = str(config['MainConfig']['moveable'])
 flag = True
 script_path = Path(__file__).parent.absolute()
@@ -62,23 +60,32 @@ def Tray_Icon():
                 continue
 
     def move_window_to_bottom_right(process_name):
-        window = pyautogui.getWindowsWithTitle(process_name)[0]
-        screen_width, screen_height = pyautogui.size()
-        x_min, y_min = screen_width - window.width, screen_height - window.height
-        x_max, y_max = screen_width, screen_height
-        window.moveTo(x_min, y_min)
-        return x_min, y_min, x_max, y_max
+        while True:
+            try:
+                window = pyautogui.getWindowsWithTitle(process_name)
+                if window:
+                    window = window[0]
+                    # do something with the window
+                    screen_width, screen_height = pyautogui.size()
+                    x_min, y_min = screen_width - window.width, screen_height - window.height
+                    x_max, y_max = screen_width, screen_height
+                    x_min, y_min = x_min, y_min - 80
+                    window.moveTo(x_min, y_min)
+                    threading.Thread(target=lambda :start_mouse_listener(x_min, y_min, x_max, y_max),
+                                     daemon=True).start()
+                    break
+                else:
+                    raise Exception("Window not Found")
+            except:
+                pass
 
     def onDoubleClick(reason):
         global flag,spawn,screen_width,screen_height
         if reason == QSystemTrayIcon.Trigger:
-            subprocess.Popen('sndvol.exe')
-            time.sleep(spawn)
             process_name = "volume mixer"
-            x_min, y_min, x_max, y_max = move_window_to_bottom_right(process_name)
+            threading.Thread(target=lambda: move_window_to_bottom_right(process_name),daemon=True).start()
+            threading.Thread(target=lambda: subprocess.Popen('sndvol.exe'),daemon=True).start()
             flag = True
-            start_mouse_listener(x_min, y_min, x_max, y_max)
-
     app = QApplication(sys.argv)
 
     tray_icon = QSystemTrayIcon()
