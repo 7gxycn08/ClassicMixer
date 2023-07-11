@@ -29,7 +29,7 @@ def resource_path(relative_path):
 res_path = resource_path(script_path)
 
 def Tray_Icon():
-    global process,screen_width,screen_height
+    global process
     def close_tray_icon():
         tray_icon.hide()
         app.exit()
@@ -80,7 +80,7 @@ def Tray_Icon():
                 pass
 
     def onDoubleClick(reason):
-        global flag,spawn,screen_width,screen_height
+        global flag
         if reason == QSystemTrayIcon.Trigger:
             process_name = "volume mixer"
             threading.Thread(target=lambda: move_window_to_bottom_right(process_name),daemon=True).start()
