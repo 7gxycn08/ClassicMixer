@@ -23,9 +23,7 @@ Icon taken from `https://www.freepik.com/`
 
 ## Usage
 
-Edit the `Config.ini` with your screen resolution It is set to w/h 3840x2160 by default.
-
-Make sure the screen_width and screen_height values match your display resolution so that the Classic Volume window spawns on the bottom right corner of the screen.
+To disable auto close mixer when clicking away edit the `Config.ini` and set `movable=True`.
 
 You can use Windows Task Scheduler to run at startup.
 
