@@ -55,8 +55,8 @@ def tray_icon():
 
     def launch_and_move_window():
         subprocess.Popen("bin/ClassicMixerBin.exe", creationflags=subprocess.CREATE_NO_WINDOW)
-        window = gw.getWindowsWithTitle(window_name)
         while True:
+            window = gw.getWindowsWithTitle(window_name)
             if window:
                 win = window[0]
                 x, y = win.left, win.top
