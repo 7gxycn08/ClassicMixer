@@ -10,12 +10,15 @@ from PySide6.QtWidgets import QMenu, QSystemTrayIcon, QApplication
 from PySide6.QtGui import QIcon, QAction
 from PySide6.QtCore import Qt
 
+
 window_name = "volume mixer"
 config = configparser.ConfigParser()
 config.read('Config.ini')
 movable = str(config['MainConfig']['moveable'])
 flag = True
 current_keys = set()
+x_min,y_min = None,None
+x_max,y_max = None,None
 
 def tray_icon():
     def close_tray_icon():
@@ -29,40 +32,39 @@ def tray_icon():
             threading.Thread(target=launch_and_move_window, daemon=True).start()  # noqa
             flag = True
 
-    def on_click(x, y, x_min, y_min, x_max, y_max, button, pressed):
-        global flag, movable
+    def on_click(x, y, button, pressed):
+        global flag, movable,x_min,x_max,y_min,y_max
         if movable == "True":
             flag = False
-            return
+
         else:
-            if not pressed:
-                return
-            # Check if the click occurred outside the ROI
+            if pressed:
+                x_min, x_max = min(x_min, x_max), max(x_min, x_max) # noqa
+                y_min, y_max = min(y_min, y_max), max(y_min, y_max) # noqa
+                if not x_min <= x <= x_max and y_min <= y <= y_max:
+                    subprocess.call('taskkill /im sndvol.exe /F', creationflags=0x08000000)  # noqa
+                    flag = False
 
-            if x < x_min or x > x_max or y < y_min or y > y_max:
-                subprocess.call('taskkill /im sndvol.exe /F', creationflags=0x08000000) # noqa
-                flag = False
-                return
-
-    def start_mouse_listener(x_min, y_min, x_max, y_max):
+    def start_mouse_listener():
         global flag
         flag = True
-        with mouse.Listener(on_click=lambda x, y, button, pressed: on_click(x, y, x_min, y_min, x_max, y_max, button,
-                                                                            pressed)) as listener:
+        with mouse.Listener(on_click=on_click) as listener:
             while flag:
                 time.sleep(1)
                 continue
 
+
     def launch_and_move_window():
+        global x_min, y_min, x_max, y_max
         subprocess.Popen("bin/ClassicMixerBin.exe", creationflags=subprocess.CREATE_NO_WINDOW)
+
         while True:
             window = gw.getWindowsWithTitle(window_name)
             if window:
                 win = window[0]
-                x, y = win.left, win.top
-                x_max, y_max = win.width, win.height
-                threading.Thread(target=lambda: start_mouse_listener(x, y, x_max, y_max),
-                                 daemon=True).start()
+                x_min, y_min = win.left, win.top
+                x_max, y_max = win.left + win.width, win.top + win.height
+                threading.Thread(target= start_mouse_listener,daemon=True).start()
                 break
             else:
                 time.sleep(0.1)
