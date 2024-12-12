@@ -86,7 +86,7 @@ def tray_icon():
 
     app = QApplication(sys.argv)
     classic_tray = QSystemTrayIcon()
-    classic_tray.setToolTip("Classic Mixer v1.9")
+    classic_tray.setToolTip("Classic Mixer v2.0")
     classic_tray.setIcon(QIcon(r'Dependency\Resources\sound.ico'))
 
     menu = QMenu()
