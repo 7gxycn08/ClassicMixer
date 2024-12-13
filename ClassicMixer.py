@@ -36,12 +36,13 @@ def tray_icon():
         global flag, movable,x_min,x_max,y_min,y_max
         if movable == "True":
             flag = False
+            return
 
         else:
             if pressed:
                 x_min, x_max = min(x_min, x_max), max(x_min, x_max) # noqa
                 y_min, y_max = min(y_min, y_max), max(y_min, y_max) # noqa
-                if not x_min <= x <= x_max and y_min <= y <= y_max:
+                if not (x_min <= x <= x_max and y_min <= y <= y_max):
                     subprocess.call('taskkill /im sndvol.exe /F', creationflags=0x08000000)  # noqa
                     flag = False
 
@@ -64,6 +65,9 @@ def tray_icon():
                 win = window[0]
                 x_min, y_min = win.left, win.top
                 x_max, y_max = win.left + win.width, win.top + win.height
+                if (x_min == 0 and y_min == 0) or (x_max == 0 and y_max == 0):
+                    time.sleep(0.1)
+                    continue
                 threading.Thread(target= start_mouse_listener,daemon=True).start()
                 break
             else:
@@ -86,7 +90,7 @@ def tray_icon():
 
     app = QApplication(sys.argv)
     classic_tray = QSystemTrayIcon()
-    classic_tray.setToolTip("Classic Mixer v2.0")
+    classic_tray.setToolTip("Classic Mixer v2.1")
     classic_tray.setIcon(QIcon(r'Dependency\Resources\sound.ico'))
 
     menu = QMenu()
