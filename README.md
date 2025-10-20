@@ -51,7 +51,7 @@ to discuss what you would like to change.
 
 MIT License
 
-Copyright (c) 2023 7gxycn08
+Copyright (c) 2025 7gxycn08
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
