@@ -19,11 +19,15 @@ https://user-images.githubusercontent.com/121936658/215395191-d19b1969-13a0-4cdb
 
 Compiled as a windows executable only using pyinstaller check `releases` or self compile.
 
+
+For help on how to build manually open a new issue.
+
+
 Icon taken from `https://www.freepik.com/`
 
 ## Usage
 
-To disable auto close mixer when clicking away edit the `Config.ini` and set `movable=True`.
+To disable auto close mixer when clicking away toggle `Enable Shortcuts` from system tray.
 
 You can use Windows Task Scheduler to run at startup.
 
