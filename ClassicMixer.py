@@ -225,7 +225,7 @@ def tray_icon():
     app.setStyle("Fusion")
     app_settings = QSettings("7gxycn08@Github", "ClassicMixer")
     classic_tray = QSystemTrayIcon()
-    classic_tray.setToolTip("Classic Mixer v2.2")
+    classic_tray.setToolTip("Classic Mixer v2.3")
     classic_tray.setIcon(QIcon(r'Dependency\Resources\sound.ico'))
     module_available = is_module_installed("AudioDeviceCmdlets")
 
@@ -277,4 +277,5 @@ def tray_icon():
     app.exec()
 
 if __name__ == '__main__':
+
     tray_icon()
