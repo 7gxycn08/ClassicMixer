@@ -4,13 +4,13 @@ import pygetwindow as gw
 import pyautogui
 import threading
 import time
-from pynput import mouse
-import keyboard
+from pynput import mouse, keyboard
 import sys
 from PySide6.QtWidgets import QMenu, QSystemTrayIcon, QApplication
 from PySide6.QtGui import QIcon, QAction
 from PySide6.QtCore import Qt, QSettings
 import ctypes
+
 
 window_name = "volume mixer"
 movable = None
@@ -18,6 +18,7 @@ flag = True
 current_keys = set()
 x_min,y_min = None,None
 x_max,y_max = None,None
+initial_flag = None
 shortcut_thread = None
 shortcut_thread_running = True
 cycle_script = rf"{os.getcwd()}\bin\CycleAudio.ps1"
@@ -38,7 +39,7 @@ def tray_icon():
 
 
     def run_audio_cycling(cmd):
-        subprocess.run(
+        subprocess.call(
             cmd,
             creationflags=subprocess.CREATE_NO_WINDOW
         )
@@ -110,16 +111,33 @@ def tray_icon():
         time.sleep(0.1)
 
 
+    def mute():
+        cmd = [
+            "powershell.exe",
+            "-command",
+            "(New-Object -ComObject WScript.Shell).SendKeys([char]173)"
+        ]
+        run_audio_cycling(cmd)
+
+
     def shortcuts_listener():
         global shortcut_thread_running
+        hotkeys = {
+            '<ctrl>+<alt>+left': cycle_audio_left,
+            '<ctrl>+<alt>+right': cycle_audio_right,
+            '<ctrl>+<alt>+up': lambda: volume_control(0xAF),
+            '<ctrl>+<alt>+down': lambda: volume_control(0xAE),
+            '<ctrl>+<alt>+insert': mute,
+        }
         # Start listening
-        keyboard.add_hotkey('ctrl+alt+left', cycle_audio_left)
-        keyboard.add_hotkey('ctrl+alt+right', cycle_audio_right)
-        keyboard.add_hotkey('ctrl+alt+up', lambda: volume_control(0xAF))
-        keyboard.add_hotkey('ctrl+alt+down', lambda: volume_control(0xAE))
+        listener = keyboard.GlobalHotKeys(hotkeys)
+        listener.start()
+
         while shortcut_thread_running:
             time.sleep(0.1)
-        keyboard.remove_all_hotkeys()
+
+        listener.stop()
+        listener.join()
 
 
     def close_tray_icon():
@@ -196,17 +214,16 @@ def tray_icon():
 
 
     def shortcut_box_clicked(checked):
-        global shortcut_thread_running, shortcut_thread
+        global initial_flag, shortcut_thread_running, shortcut_thread
         app_settings.setValue("Enable_Shortcuts", checked)
         try:
             if checked:
                 if shortcut_thread is None or not shortcut_thread.is_alive():
-                    shortcut_thread_running = True
                     shortcut_thread = threading.Thread(target=shortcuts_listener, daemon=True)
                     shortcut_thread.start()
+                    shortcut_thread_running = True
             if not checked:
                 shortcut_thread_running = False
-                keyboard.remove_all_hotkeys()
                 shortcut_thread.join()
                 shortcut_thread = None
         except Exception as e:
@@ -277,5 +294,4 @@ def tray_icon():
     app.exec()
 
 if __name__ == '__main__':
-
     tray_icon()
