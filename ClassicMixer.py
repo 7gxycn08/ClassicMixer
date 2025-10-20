@@ -123,11 +123,11 @@ def tray_icon():
     def shortcuts_listener():
         global shortcut_thread_running
         hotkeys = {
-            '<ctrl>+<alt>+left': cycle_audio_left,
-            '<ctrl>+<alt>+right': cycle_audio_right,
-            '<ctrl>+<alt>+up': lambda: volume_control(0xAF),
-            '<ctrl>+<alt>+down': lambda: volume_control(0xAE),
-            '<ctrl>+<alt>+insert': mute,
+            '<ctrl>+<alt>+<left>': cycle_audio_left,
+            '<ctrl>+<alt>+<right>': cycle_audio_right,
+            '<ctrl>+<alt>+<up>': lambda: volume_control(0xAF),
+            '<ctrl>+<alt>+<down>': lambda: volume_control(0xAE),
+            '<ctrl>+<alt>+<insert>': mute,
         }
         # Start listening
         listener = keyboard.GlobalHotKeys(hotkeys)
