@@ -4,28 +4,25 @@ import pygetwindow as gw
 import pyautogui
 import threading
 import time
-from pynput import mouse, keyboard
+from pynput import mouse
+import keyboard
 import sys
 from PySide6.QtWidgets import QMenu, QSystemTrayIcon, QApplication
 from PySide6.QtGui import QIcon, QAction
 from PySide6.QtCore import Qt, QSettings
+import ctypes
 
-
-COMBO_LEFT = {keyboard.Key.ctrl_l, keyboard.Key.alt_l, keyboard.Key.left}
-COMBO_RIGHT = {keyboard.Key.ctrl_l, keyboard.Key.alt_l, keyboard.Key.right}
-combo_left_triggered = False
-combo_right_triggered = False
 window_name = "volume mixer"
 movable = None
 flag = True
 current_keys = set()
 x_min,y_min = None,None
 x_max,y_max = None,None
-initial_flag = None
 shortcut_thread = None
 shortcut_thread_running = True
 cycle_script = rf"{os.getcwd()}\bin\CycleAudio.ps1"
 current_device_txt = rf"{os.getcwd()}\bin\Current_Device.txt"
+user_32 = ctypes.WinDLL("user32.dll")
 
 
 def tray_icon():
@@ -107,61 +104,22 @@ def tray_icon():
             return False
 
 
-    def is_ctrl(key):
-        return key in {keyboard.Key.ctrl, keyboard.Key.ctrl_l, keyboard.Key.ctrl_r}
-
-
-    def is_alt(key):
-        return key in {keyboard.Key.alt, keyboard.Key.alt_l, keyboard.Key.alt_r}
-
-
-    def combo_left_pressed():
-        return (any(is_ctrl(k) for k in current_keys)
-                and any(is_alt(k) for k in current_keys)
-                and keyboard.Key.left in current_keys)
-
-
-    def combo_right_pressed():
-        return (any(is_ctrl(k) for k in current_keys)
-                and any(is_alt(k) for k in current_keys)
-                and keyboard.Key.right in current_keys)
-
-
-    def on_press(key):
-        global current_keys, combo_left_triggered, combo_right_triggered
-        current_keys.add(key)
-
-        # Check for CTRL + ALT + LEFT ARROW
-        if combo_left_pressed() and not combo_left_triggered:
-            combo_left_triggered = True
-            cycle_audio_left()
-
-        # Check for CTRL + ALT + RIGHT ARROW
-        if combo_right_pressed() and not combo_right_triggered:
-            combo_right_triggered = True
-            cycle_audio_right()
-
-
-    def on_release(key):
-        global current_keys, combo_left_triggered, combo_right_triggered
-        current_keys.discard(key)
-        if keyboard.Key.left == key:
-            combo_left_triggered = False
-        if keyboard.Key.right == key:
-            combo_right_triggered = False
+    def volume_control(hex_key_code):
+        user_32.keybd_event(hex_key_code, 0, 0x1, 0)
+        user_32.keybd_event(hex_key_code, 0, 0x2, 0)
+        time.sleep(0.1)
 
 
     def shortcuts_listener():
         global shortcut_thread_running
         # Start listening
-        listener = keyboard.Listener(on_press=on_press, on_release=on_release)
-        listener.start()
-
+        keyboard.add_hotkey('ctrl+alt+left', cycle_audio_left)
+        keyboard.add_hotkey('ctrl+alt+right', cycle_audio_right)
+        keyboard.add_hotkey('ctrl+alt+up', lambda: volume_control(0xAF))
+        keyboard.add_hotkey('ctrl+alt+down', lambda: volume_control(0xAE))
         while shortcut_thread_running:
             time.sleep(0.1)
-
-        listener.stop()
-        listener.join()
+        keyboard.remove_all_hotkeys()
 
 
     def close_tray_icon():
@@ -238,16 +196,17 @@ def tray_icon():
 
 
     def shortcut_box_clicked(checked):
-        global initial_flag, shortcut_thread_running, shortcut_thread
+        global shortcut_thread_running, shortcut_thread
         app_settings.setValue("Enable_Shortcuts", checked)
         try:
             if checked:
                 if shortcut_thread is None or not shortcut_thread.is_alive():
+                    shortcut_thread_running = True
                     shortcut_thread = threading.Thread(target=shortcuts_listener, daemon=True)
                     shortcut_thread.start()
-                    shortcut_thread_running = True
             if not checked:
                 shortcut_thread_running = False
+                keyboard.remove_all_hotkeys()
                 shortcut_thread.join()
                 shortcut_thread = None
         except Exception as e:
