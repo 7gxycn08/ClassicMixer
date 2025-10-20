@@ -27,7 +27,13 @@ Icon taken from `https://www.freepik.com/`
 
 ## Usage
 
-To disable auto close mixer when clicking away toggle `Enable Shortcuts` from system tray.
+To disable auto close mixer when clicking away toggle `Movable Window` from system tray.
+
+For keyboard shortcuts toggle `Enable Shortcuts` from system tray.
+
+- Volume Up: `CTRL + ALT + UP`
+- Volume Down: `CTRL + ALT + DOWN`
+- Cycle through Audio output devices: `CTRL + ALT + LEFT` and `CTRL + ALT + RIGHT` 
 
 You can use Windows Task Scheduler to run at startup.
 
