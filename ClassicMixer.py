@@ -8,14 +8,13 @@ from pynput import mouse, keyboard
 import sys
 from PySide6.QtWidgets import QMenu, QSystemTrayIcon, QApplication
 from PySide6.QtGui import QIcon, QAction
-from PySide6.QtCore import Qt, QSettings
+from PySide6.QtCore import Qt, QSettings, Signal, QObject
 import ctypes
 
 
 window_name = "volume mixer"
 movable = None
 flag = True
-current_keys = set()
 x_min,y_min = None,None
 x_max,y_max = None,None
 initial_flag = None
@@ -123,11 +122,11 @@ def tray_icon():
     def shortcuts_listener():
         global shortcut_thread_running
         hotkeys = {
-            '<ctrl>+<alt>+<left>': cycle_audio_left,
-            '<ctrl>+<alt>+<right>': cycle_audio_right,
-            '<ctrl>+<alt>+<up>': lambda: volume_control(0xAF),
-            '<ctrl>+<alt>+<down>': lambda: volume_control(0xAE),
-            '<ctrl>+<alt>+<insert>': mute,
+            '<ctrl>+<alt>+<left>': signals.cycle_left_signal.emit,
+            '<ctrl>+<alt>+<right>': signals.cycle_right_signal.emit,
+            '<ctrl>+<alt>+<up>': signals.volume_up_signal.emit,
+            '<ctrl>+<alt>+<down>': signals.volume_down_signal.emit,
+            '<ctrl>+<alt>+<insert>': signals.mute_signal.emit,
         }
         # Start listening
         listener = keyboard.GlobalHotKeys(hotkeys)
@@ -238,13 +237,26 @@ def tray_icon():
         else:
             movable = False
 
+    class Signals(QObject):
+        cycle_left_signal = Signal()
+        cycle_right_signal = Signal()
+        volume_up_signal = Signal()
+        volume_down_signal = Signal()
+        mute_signal = Signal()
+
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
     app_settings = QSettings("7gxycn08@Github", "ClassicMixer")
     classic_tray = QSystemTrayIcon()
-    classic_tray.setToolTip("Classic Mixer v2.3")
+    classic_tray.setToolTip("Classic Mixer v2.4")
     classic_tray.setIcon(QIcon(r'Dependency\Resources\sound.ico'))
     module_available = is_module_installed("AudioDeviceCmdlets")
+    signals = Signals()
+    signals.cycle_left_signal.connect(cycle_audio_left)
+    signals.cycle_right_signal.connect(cycle_audio_right)
+    signals.volume_up_signal.connect(lambda: volume_control(0xAF))
+    signals.volume_down_signal.connect(lambda: volume_control(0xAE))
+    signals.mute_signal.connect(mute)
 
     if not module_available:
         install_module()
