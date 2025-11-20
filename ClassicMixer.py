@@ -4,12 +4,16 @@ import pygetwindow as gw
 import pyautogui
 import threading
 import time
+import win32api
 from pynput import mouse, keyboard
 import sys
-from PySide6.QtWidgets import QMenu, QSystemTrayIcon, QApplication
+from PySide6.QtWidgets import QMenu, QSystemTrayIcon, QApplication, QMessageBox
 from PySide6.QtGui import QIcon, QAction
 from PySide6.QtCore import Qt, QSettings, Signal, QObject
 import ctypes
+import win32gui
+import win32con
+import win32process
 
 
 window_name = "volume mixer"
@@ -100,7 +104,7 @@ def tray_icon():
             )
             return bool(result.stdout.strip())  # If output is not empty, module exists
         except Exception as e:
-            print(f"Error checking module: {e}")
+            signals.error_signal.emit(f"Error installing module: {e}")
             return False
 
 
@@ -154,7 +158,7 @@ def tray_icon():
             flag = True
 
 
-    def on_click(x, y, button, pressed):
+    def on_click(x, y, _, pressed):
         global flag, movable,x_min,x_max,y_min,y_max
         if movable:
             flag = False
@@ -172,15 +176,80 @@ def tray_icon():
     def start_mouse_listener():
         global flag
         flag = True
-        with mouse.Listener(on_click=on_click) as listener:
+        with mouse.Listener(on_click=on_click):
             while flag:
                 time.sleep(1)
                 continue
 
+    def find_hwnd_by_pid(pid, timeout=5):
+        hwnd_list = []
+
+        def callback(hwnd, _):
+            _, found_pid = win32process.GetWindowThreadProcessId(hwnd)
+            if found_pid == pid and win32gui.IsWindowVisible(hwnd):
+                hwnd_list.append(hwnd)
+            return True
+
+        # Wait until window exists or timeout
+        start = time.time()
+        while time.time() - start < timeout:
+            try:
+                hwnd_list.clear()
+                win32gui.EnumWindows(callback, None)
+                if hwnd_list:
+                    break
+            except Exception as e:
+                print(e)
+                time.sleep(0.1)
+        return hwnd_list
+
+    def move_window_bottom_right(hwnd, mon_info, margin=0):
+        """
+        Moves the window with the given title to the bottom-right corner of its monitor.
+        """
+        if not hwnd:
+            return False
+
+        # Get window size
+        rect = win32gui.GetWindowRect(hwnd)
+        win_width = rect[2] - rect[0]
+        win_height = rect[3] - rect[1]
+
+        # Get monitor containing the window
+        mon_rect = mon_info['Work']  # Work area excludes taskbar: (left, top, right, bottom)
+
+        # Calculate bottom-right position
+        new_x = mon_rect[2] - win_width - margin
+        new_y = mon_rect[3] - win_height - margin
+
+        # Move window
+        win32gui.SetWindowPos(
+            hwnd,
+            win32con.HWND_TOP,
+            new_x,
+            new_y,
+            0,
+            0,
+            win32con.SWP_NOSIZE
+        )
+        return True
 
     def launch_and_move_window():
         global x_min, y_min, x_max, y_max
-        subprocess.Popen("bin/ClassicMixerBin.exe", creationflags=subprocess.CREATE_NO_WINDOW)
+        #noinspection SpellCheckingInspection
+        proc = subprocess.Popen("sndvol", creationflags=subprocess.CREATE_NO_WINDOW)
+        hw_nds = find_hwnd_by_pid(proc.pid)
+        title = ""
+        for hwnd in hw_nds:
+            title = win32gui.GetWindowText(hwnd)
+
+        hwnd = win32gui.FindWindow(None, title)
+        monitor = win32api.MonitorFromWindow(hwnd)
+        mon_info = win32api.GetMonitorInfo(monitor)
+        moved = move_window_bottom_right(hwnd, mon_info)
+        while not moved:
+            moved = move_window_bottom_right(hwnd, mon_info)
+            time.sleep(0.1)
 
         while True:
             window = gw.getWindowsWithTitle(window_name)
@@ -226,7 +295,7 @@ def tray_icon():
                 shortcut_thread.join()
                 shortcut_thread = None
         except Exception as e:
-            print(e)
+            signals.error_signal.emit(f"Error in shortcut_box_clicked: {e}")
 
 
     def movable_box_trigger(checked):
@@ -237,18 +306,28 @@ def tray_icon():
         else:
             movable = False
 
+    def on_error_show_msg(message):
+        warning_message_box = QMessageBox()
+        warning_message_box.setWindowTitle("ClassicMixer Error")
+        warning_message_box.setWindowIcon(QIcon(r"Dependency\Resources\sound.ico"))
+        warning_message_box.setFixedSize(400, 200)
+        warning_message_box.setIcon(QMessageBox.Icon.Critical)
+        warning_message_box.setText(message)
+        warning_message_box.exec()
+
     class Signals(QObject):
         cycle_left_signal = Signal()
         cycle_right_signal = Signal()
         volume_up_signal = Signal()
         volume_down_signal = Signal()
         mute_signal = Signal()
+        error_signal = Signal(str)
 
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
     app_settings = QSettings("7gxycn08@Github", "ClassicMixer")
     classic_tray = QSystemTrayIcon()
-    classic_tray.setToolTip("Classic Mixer v2.4")
+    classic_tray.setToolTip("Classic Mixer v2.5")
     classic_tray.setIcon(QIcon(r'Dependency\Resources\sound.ico'))
     module_available = is_module_installed("AudioDeviceCmdlets")
     signals = Signals()
@@ -256,6 +335,7 @@ def tray_icon():
     signals.cycle_right_signal.connect(cycle_audio_right)
     signals.volume_up_signal.connect(lambda: volume_control(0xAF))
     signals.volume_down_signal.connect(lambda: volume_control(0xAE))
+    signals.error_signal.connect(on_error_show_msg)
     signals.mute_signal.connect(mute)
 
     if not module_available:
