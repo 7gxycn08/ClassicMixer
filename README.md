@@ -26,7 +26,7 @@ For help on how to build manually open a new issue.
 Icon taken from `https://www.freepik.com/`
 
 ## Usage
-`v2.4 and lower` If `SndVol` does not show up when clicking tray icon that means it's missing a required dependency which can be found here [.NET 6.0.36](https://builds.dotnet.microsoft.com/dotnet/Runtime/6.0.36/dotnet-runtime-6.0.36-win-x64.exe)
+`v2.4 and lower` If `SndVol` does not show up when clicking tray icon that means `ClassicMixer` is missing a required dependency which can be found here [.NET 6.0.36](https://builds.dotnet.microsoft.com/dotnet/Runtime/6.0.36/dotnet-runtime-6.0.36-win-x64.exe)
 
 
 For keyboard shortcuts toggle `Enable Shortcuts` from system tray.
