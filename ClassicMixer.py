@@ -2,18 +2,17 @@ import os
 import subprocess
 import pygetwindow as gw
 import pyautogui
-import threading
 import time
 import win32api
-from pynput import mouse, keyboard
-import sys
-from PySide6.QtWidgets import QMenu, QSystemTrayIcon, QApplication, QMessageBox
-from PySide6.QtGui import QIcon, QAction
-from PySide6.QtCore import Qt, QSettings, Signal, QObject
 import ctypes
 import win32gui
 import win32con
 import win32process
+import sys
+from PySide6.QtWidgets import QMenu, QSystemTrayIcon, QApplication, QMessageBox
+from PySide6.QtGui import QIcon, QAction
+from PySide6.QtCore import Qt, QSettings, Signal, QObject, QThread
+from pynput import mouse
 
 
 window_name = "volume mixer"
@@ -22,12 +21,23 @@ flag = True
 x_min,y_min = None,None
 x_max,y_max = None,None
 initial_flag = None
-shortcut_thread = None
+shortcut_thread = QThread()
 shortcut_thread_running = True
 cycle_script = rf"{os.getcwd()}\bin\CycleAudio.ps1"
 current_device_txt = rf"{os.getcwd()}\bin\Current_Device.txt"
 user_32 = ctypes.WinDLL("user32.dll")
+hotkeys = {}
+last_trigger = {}
 
+VK = {
+    "CTRL": 0x11,
+    "ALT": 0x12,
+    "LEFT": 0x25,
+    "RIGHT": 0x27,
+    "UP": 0x26,
+    "DOWN": 0x28,
+    "INSERT": 0x2D,
+}
 
 def tray_icon():
     global movable, shortcut_thread
@@ -39,7 +49,6 @@ def tray_icon():
             QSystemTrayIcon.MessageIcon.Information,
             1000  # duration in ms
         )
-
 
     def run_audio_cycling(cmd):
         subprocess.call(
@@ -122,30 +131,35 @@ def tray_icon():
         ]
         run_audio_cycling(cmd)
 
+    def register_hotkey(keys, callback):
+        global hotkeys, last_trigger
+        """Register a hotkey combo like ('CTRL','SHIFT','F12')"""
+        combo = frozenset(VK[k] for k in keys)
+        hotkeys[combo] = callback
+        last_trigger[combo] = 0  # initialize last trigger time
 
-    def shortcuts_listener():
+    def shortcuts_listener(poll_interval=0.1, repeat_delay=0.1):
         global shortcut_thread_running
-        hotkeys = {
-            '<ctrl>+<alt>+<left>': signals.cycle_left_signal.emit,
-            '<ctrl>+<alt>+<right>': signals.cycle_right_signal.emit,
-            '<ctrl>+<alt>+<up>': signals.volume_up_signal.emit,
-            '<ctrl>+<alt>+<down>': signals.volume_down_signal.emit,
-            '<ctrl>+<alt>+<insert>': signals.mute_signal.emit,
-        }
-        # Start listening
-        listener = keyboard.GlobalHotKeys(hotkeys)
-        listener.start()
+        register_hotkey(("CTRL", "ALT", "LEFT"), signals.cycle_left_signal.emit)
+        register_hotkey(("CTRL", "ALT", "RIGHT"), signals.cycle_right_signal.emit)
+        register_hotkey(("CTRL", "ALT", "UP"), signals.volume_up_signal.emit)
+        register_hotkey(("CTRL", "ALT", "DOWN"), signals.volume_down_signal.emit)
+        register_hotkey(("CTRL", "ALT", "INSERT"), signals.mute_signal.emit)
 
         while shortcut_thread_running:
-            time.sleep(0.1)
-
-        listener.stop()
-        listener.join()
+            for combo, cb in hotkeys.items():
+                if all(user_32.GetAsyncKeyState(vk) & 0x8000 for vk in combo):
+                    now = time.time()
+                    if now - last_trigger[combo] > repeat_delay:
+                        last_trigger[combo] = now
+                        cb()
+            time.sleep(poll_interval)
 
 
     def close_tray_icon():
         global shortcut_thread_running
         shortcut_thread_running = False
+        shortcut_thread.wait()
         classic_tray.hide()
         app.exit()
         sys.exit()
@@ -154,7 +168,7 @@ def tray_icon():
     def on_double_click(reason):
         global flag
         if reason == QSystemTrayIcon.ActivationReason.Trigger:
-            threading.Thread(target=launch_and_move_window, daemon=True).start()  # noqa
+            launch_and_move_window()
             flag = True
 
 
@@ -260,7 +274,7 @@ def tray_icon():
                 if (x_min == 0 and y_min == 0) or (x_max == 0 and y_max == 0):
                     time.sleep(0.1)
                     continue
-                threading.Thread(target= start_mouse_listener,daemon=True).start()
+                move_thread.start()
                 break
             else:
                 time.sleep(0.1)
@@ -286,14 +300,14 @@ def tray_icon():
         app_settings.setValue("Enable_Shortcuts", checked)
         try:
             if checked:
-                if shortcut_thread is None or not shortcut_thread.is_alive():
-                    shortcut_thread = threading.Thread(target=shortcuts_listener, daemon=True)
+                if shortcut_thread is None or not shortcut_thread.isRunning():
+                    shortcut_thread.run = shortcuts_listener
                     shortcut_thread.start()
                     shortcut_thread_running = True
             if not checked:
                 shortcut_thread_running = False
-                shortcut_thread.join()
-                shortcut_thread = None
+                shortcut_thread.wait()
+                shortcut_thread = QThread()
         except Exception as e:
             signals.error_signal.emit(f"Error in shortcut_box_clicked: {e}")
 
@@ -324,10 +338,12 @@ def tray_icon():
         error_signal = Signal(str)
 
     app = QApplication(sys.argv)
+    move_thread = QThread()
+    move_thread.run = start_mouse_listener
     app.setStyle("Fusion")
     app_settings = QSettings("7gxycn08@Github", "ClassicMixer")
     classic_tray = QSystemTrayIcon()
-    classic_tray.setToolTip("Classic Mixer v2.5")
+    classic_tray.setToolTip("Classic Mixer v2.6")
     classic_tray.setIcon(QIcon(r'Dependency\Resources\sound.ico'))
     module_available = is_module_installed("AudioDeviceCmdlets")
     signals = Signals()
@@ -378,8 +394,7 @@ def tray_icon():
 
     # Initial start if checked
     if shortcuts_box.isChecked():
-        initial_thread = threading.Thread(target=shortcuts_listener, daemon=True)
-        shortcut_thread = initial_thread
+        shortcut_thread.run = shortcuts_listener
         shortcut_thread.start()
 
     classic_tray.show()

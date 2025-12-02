@@ -1,6 +1,5 @@
-PyQt5
+PySide6
 pynput
-pathlib
-pynput
+pyautogui
+pygetwindow
 pywin32
-configparser
