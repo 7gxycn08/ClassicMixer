@@ -1,4 +1,4 @@
-![sound](https://user-images.githubusercontent.com/121936658/215396835-ba7215f7-2051-4953-ac5a-e3818388bfd4.png)
+<img width="100" height="200" alt="image" src="https://user-images.githubusercontent.com/121936658/215396835-ba7215f7-2051-4953-ac5a-e3818388bfd4.png" />
 
 
 # ClassicMixer
