@@ -1,7 +1,6 @@
 import os
 import subprocess
 import pygetwindow as gw
-import pyautogui
 import time
 import win32api
 import ctypes
@@ -56,7 +55,6 @@ def tray_icon():
             creationflags=subprocess.CREATE_NO_WINDOW
         )
 
-
     def cycle_audio_left():
         cmd = [
             "powershell.exe",
@@ -88,7 +86,6 @@ def tray_icon():
 
         notify_audio_changed(device)
 
-
     def install_module():
         install_script = rf"{os.getcwd()}\bin\install.ps1"
 
@@ -97,7 +94,6 @@ def tray_icon():
             ["powershell", "-ExecutionPolicy", "Bypass", "-File", install_script],
             creationflags=subprocess.CREATE_NO_WINDOW
         )
-
 
     def is_module_installed(module_name):
         """
@@ -155,7 +151,6 @@ def tray_icon():
                         cb()
             time.sleep(poll_interval)
 
-
     def close_tray_icon():
         global shortcut_thread_running
         shortcut_thread_running = False
@@ -164,13 +159,11 @@ def tray_icon():
         app.exit()
         sys.exit()
 
-
     def on_double_click(reason):
         global flag
         if reason == QSystemTrayIcon.ActivationReason.Trigger:
             launch_and_move_window()
             flag = True
-
 
     def on_click(x, y, _, pressed):
         global flag, movable,x_min,x_max,y_min,y_max
@@ -248,6 +241,17 @@ def tray_icon():
         )
         return True
 
+    def find_sound_window():
+        result = []
+
+        def enum_handler(hwnd, _):
+            title = win32gui.GetWindowText(hwnd)
+            if "Sound" in title:
+                result.append(hwnd)
+
+        win32gui.EnumWindows(enum_handler, None)
+        return result[0] if result else None
+
     def launch_and_move_window():
         global x_min, y_min, x_max, y_max
         #noinspection SpellCheckingInspection
@@ -256,11 +260,11 @@ def tray_icon():
         title = ""
         for hwnd in hw_nds:
             title = win32gui.GetWindowText(hwnd)
-
         hwnd = win32gui.FindWindow(None, title)
         monitor = win32api.MonitorFromWindow(hwnd)
         mon_info = win32api.GetMonitorInfo(monitor)
         moved = move_window_bottom_right(hwnd, mon_info)
+
         while not moved:
             moved = move_window_bottom_right(hwnd, mon_info)
             time.sleep(0.1)
@@ -284,16 +288,19 @@ def tray_icon():
         subprocess.Popen("start https://github.com/7gxycn08/ClassicMixer",
                          shell=True, creationflags=subprocess.CREATE_NEW_CONSOLE)
 
-
     def sound_output():
-        pyautogui.keyDown("win")
-        pyautogui.keyDown("ctrl")
-        pyautogui.keyDown("v")
-
-        pyautogui.keyUp("win")
-        pyautogui.keyUp("ctrl")
-        pyautogui.keyUp("v")
-
+        # noinspection SpellCheckingInspection
+        subprocess.Popen(["control.exe", "mmsys.cpl"], creationflags=subprocess.CREATE_NO_WINDOW)
+        while True:
+            h_wnd = find_sound_window()
+            if h_wnd:
+                break
+            time.sleep(0.1)
+        title = "Sound"
+        hwnd = win32gui.FindWindow(None, title)
+        monitor = win32api.MonitorFromWindow(hwnd)
+        mon_info = win32api.GetMonitorInfo(monitor)
+        move_window_bottom_right(hwnd, mon_info)
 
     def shortcut_box_clicked(checked):
         global initial_flag, shortcut_thread_running, shortcut_thread
@@ -310,7 +317,6 @@ def tray_icon():
                 shortcut_thread = QThread()
         except Exception as e:
             signals.error_signal.emit(f"Error in shortcut_box_clicked: {e}")
-
 
     def movable_box_trigger(checked):
         global movable
@@ -343,7 +349,7 @@ def tray_icon():
     app.setStyle("Fusion")
     app_settings = QSettings("7gxycn08@Github", "ClassicMixer")
     classic_tray = QSystemTrayIcon()
-    classic_tray.setToolTip("Classic Mixer v2.6")
+    classic_tray.setToolTip("Classic Mixer v2.7")
     classic_tray.setIcon(QIcon(r'Dependency\Resources\sound.ico'))
     module_available = is_module_installed("AudioDeviceCmdlets")
     signals = Signals()
