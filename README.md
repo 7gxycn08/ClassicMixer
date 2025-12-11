@@ -2,7 +2,7 @@
 
 
 # ClassicMixer
-Restores Classic Volume Mixer On Windows 11.
+Restores Classic Volume Mixer On Windows 11 (sndvol).
 
 https://user-images.githubusercontent.com/121936658/215395191-d19b1969-13a0-4cdb-b6e2-b790a7585261.mp4
 
