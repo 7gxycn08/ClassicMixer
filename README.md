@@ -10,10 +10,10 @@ Restores Classic Volume Mixer On Windows 11 (sndvol).
 
 ## Features
 
-1. Spawn the Classic mixer (sndvol) by simply clicking the tray icon.
+1. Spawn the Classic mixer (sndvol) to bottom right corner of screen by simply clicking the tray icon.
 
 
-2. Open sound output window by right clicking tray icon. 
+2. Open sound output window to bottom right corner of screen by right clicking tray icon and selecting sound output. 
 
 
 2. Light Weight.
