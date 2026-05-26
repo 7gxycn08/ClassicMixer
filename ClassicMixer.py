@@ -27,6 +27,9 @@ current_device_txt = rf"{os.getcwd()}\bin\Current_Device.txt"
 user_32 = ctypes.WinDLL("user32.dll")
 hotkeys = {}
 last_trigger = {}
+startupinfo = subprocess.STARTUPINFO()
+startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+startupinfo.wShowWindow = win32con.SW_MINIMIZE
 
 VK = {
     "CTRL": 0x11,
@@ -200,13 +203,14 @@ def tray_icon():
         # Wait until window exists or timeout
         start = time.time()
         while time.time() - start < timeout:
+            # noinspection PyBroadException
             try:
+                hwnd_list.clear()
                 hwnd_list.clear()
                 win32gui.EnumWindows(callback, None)
                 if hwnd_list:
                     break
-            except Exception as e:
-                print(e)
+            except Exception:
                 time.sleep(0.1)
         return hwnd_list
 
@@ -218,27 +222,26 @@ def tray_icon():
             return False
 
         # Get window size
-        rect = win32gui.GetWindowRect(hwnd)
-        win_width = rect[2] - rect[0]
-        win_height = rect[3] - rect[1]
+        placement = list(win32gui.GetWindowPlacement(hwnd))
+        left, top, right, bottom = placement[4]
+        width = right - left
+        height = bottom - top
 
         # Get monitor containing the window
         mon_rect = mon_info['Work']  # Work area excludes taskbar: (left, top, right, bottom)
 
         # Calculate bottom-right position
-        new_x = mon_rect[2] - win_width - margin
-        new_y = mon_rect[3] - win_height - margin
-
-        # Move window
-        win32gui.SetWindowPos(
-            hwnd,
-            win32con.HWND_TOP,
+        new_x = mon_rect[2] - width - margin
+        new_y = mon_rect[3] - height - margin
+        placement[4] = (
             new_x,
             new_y,
-            0,
-            0,
-            win32con.SWP_NOSIZE
+            new_x + width,
+            new_y + height
         )
+
+        win32gui.SetWindowPlacement(hwnd, tuple(placement))
+        win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
         return True
 
     def find_sound_window():
@@ -255,7 +258,7 @@ def tray_icon():
     def launch_and_move_window():
         global x_min, y_min, x_max, y_max
         #noinspection SpellCheckingInspection
-        proc = subprocess.Popen("sndvol", creationflags=subprocess.CREATE_NO_WINDOW)
+        proc = subprocess.Popen("sndvol", startupinfo=startupinfo, creationflags=subprocess.CREATE_NO_WINDOW)
         hw_nds = find_hwnd_by_pid(proc.pid)
         title = ""
         for hwnd in hw_nds:
@@ -290,7 +293,8 @@ def tray_icon():
 
     def sound_output():
         # noinspection SpellCheckingInspection
-        subprocess.Popen(["control.exe", "mmsys.cpl"], creationflags=subprocess.CREATE_NO_WINDOW)
+        subprocess.Popen(["control.exe", "mmsys.cpl"],startupinfo=startupinfo,
+                         creationflags=subprocess.CREATE_NO_WINDOW)
         while True:
             h_wnd = find_sound_window()
             if h_wnd:
@@ -349,7 +353,7 @@ def tray_icon():
     app.setStyle("Fusion")
     app_settings = QSettings("7gxycn08@Github", "ClassicMixer")
     classic_tray = QSystemTrayIcon()
-    classic_tray.setToolTip("Classic Mixer v2.7")
+    classic_tray.setToolTip("Classic Mixer v2.8")
     classic_tray.setIcon(QIcon(r'Dependency\Resources\sound.ico'))
     module_available = is_module_installed("AudioDeviceCmdlets")
     signals = Signals()
