@@ -1,17 +1,16 @@
 import os
-import subprocess
-import pygetwindow as gw
+import sys
 import time
-import win32api
 import ctypes
+import win32api
 import win32gui
 import win32con
+import subprocess
 import win32process
-import sys
-from PySide6.QtWidgets import QMenu, QSystemTrayIcon, QApplication, QMessageBox
+from pynput import mouse
 from PySide6.QtGui import QIcon, QAction
 from PySide6.QtCore import Qt, QSettings, Signal, QObject, QThread
-from pynput import mouse
+from PySide6.QtWidgets import QMenu, QSystemTrayIcon, QApplication, QMessageBox
 
 
 window_name = "volume mixer"
@@ -273,11 +272,13 @@ def tray_icon():
             time.sleep(0.1)
 
         while True:
-            window = gw.getWindowsWithTitle(window_name)
+            window = list(win32gui.GetWindowPlacement(hwnd))
+            left, top, right, bottom = window[4]
+            width = right - left
+            height = bottom - top
             if window:
-                win = window[0]
-                x_min, y_min = win.left, win.top
-                x_max, y_max = win.left + win.width, win.top + win.height
+                x_min, y_min = left, top
+                x_max, y_max = left + width, top + height
                 if (x_min == 0 and y_min == 0) or (x_max == 0 and y_max == 0):
                     time.sleep(0.1)
                     continue
