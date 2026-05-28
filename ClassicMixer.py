@@ -7,6 +7,8 @@ import win32gui
 import win32con
 import subprocess
 import win32process
+import configparser
+from ctypes import wintypes
 from pynput import mouse
 from PySide6.QtGui import QIcon, QAction
 from PySide6.QtCore import Qt, QSettings, Signal, QObject, QThread
@@ -29,6 +31,12 @@ last_trigger = {}
 startupinfo = subprocess.STARTUPINFO()
 startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
 startupinfo.wShowWindow = win32con.SW_MINIMIZE
+config = configparser.ConfigParser()
+config.read("custom_size.ini")
+KERNEL_32 = ctypes.WinDLL("kernel32.dll")
+custom_width = int(config["WindowSize"]["width"])
+if custom_width > 1500:
+    custom_width = 1500
 
 VK = {
     "CTRL": 0x11,
@@ -39,6 +47,20 @@ VK = {
     "DOWN": 0x28,
     "INSERT": 0x2D,
 }
+
+class ProcessCheckEntry32(ctypes.Structure):
+    _fields_ = [
+        ('dwSize', wintypes.DWORD),
+        ('cntUsage', wintypes.DWORD),
+        ('th32ProcessID', wintypes.DWORD),
+        ('th32DefaultHeapID', ctypes.POINTER(ctypes.c_ulong)),
+        ('th32ModuleID', wintypes.DWORD),
+        ('cntThreads', wintypes.DWORD),
+        ('th32ParentProcessID', wintypes.DWORD),
+        ('pcPriClassBase', ctypes.c_long),
+        ('dwFlags', wintypes.DWORD),
+        ('szExeFile', wintypes.CHAR * 260),
+    ]
 
 def tray_icon():
     global movable, shortcut_thread
@@ -213,7 +235,7 @@ def tray_icon():
                 time.sleep(0.1)
         return hwnd_list
 
-    def move_window_bottom_right(hwnd, mon_info, margin=0):
+    def move_window_bottom_right(hwnd, mon_info, process):
         """
         Moves the window with the given title to the bottom-right corner of its monitor.
         """
@@ -230,8 +252,9 @@ def tray_icon():
         mon_rect = mon_info['Work']  # Work area excludes taskbar: (left, top, right, bottom)
 
         # Calculate bottom-right position
-        new_x = mon_rect[2] - width - margin
-        new_y = mon_rect[3] - height - margin
+        new_x = mon_rect[2] - width
+        new_y = mon_rect[3] - height
+
         placement[4] = (
             new_x,
             new_y,
@@ -241,21 +264,78 @@ def tray_icon():
 
         win32gui.SetWindowPlacement(hwnd, tuple(placement))
         win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+        win32gui.SetForegroundWindow(hwnd)
+        # noinspection SpellCheckingInspection
+        if custom_width != 0 and process == "sndvol":
+            win32gui.SetWindowPos(
+                hwnd,
+                None,
+                0,
+                0,
+                custom_width,
+                0,
+                win32con.SWP_NOMOVE | win32con.SWP_NOZORDER
+            )
+            # Actual rect after resize
+            left, top, right, bottom = win32gui.GetWindowRect(hwnd)
+            # Monitor work area
+            mon_left, mon_top, mon_right, mon_bottom = mon_info['Work']
+
+            new_x = left
+            new_y = top
+
+            # Push window back inside monitor without changing size
+            if right > mon_right:
+                new_x -= right - mon_right
+
+            if bottom > mon_bottom:
+                new_y -= bottom - mon_bottom
+
+            if left < mon_left:
+                new_x += mon_left - left
+
+            if top < mon_top:
+                new_y += mon_top - top
+            # Move ONLY
+            if new_x != left or new_y != top:
+                win32gui.SetWindowPos(
+                    hwnd,
+                    None,
+                    new_x,
+                    new_y,
+                    0,
+                    0,
+                    win32con.SWP_NOSIZE | win32con.SWP_NOZORDER
+                )
         return True
 
-    def find_sound_window():
-        result = []
+    def is_process_running(process_name: str) -> bool:
+        # Take a snapshot of all processes
+        h_snapshot = KERNEL_32.CreateToolhelp32Snapshot(0x00000002, 0)
+        if h_snapshot == wintypes.HANDLE(-1).value:
+            raise ctypes.WinError(ctypes.get_last_error())
 
-        def enum_handler(hwnd, _):
-            title = win32gui.GetWindowText(hwnd)
-            if "Sound" in title:
-                result.append(hwnd)
+        entry = ProcessCheckEntry32()
+        entry.dwSize = ctypes.sizeof(ProcessCheckEntry32)
 
-        win32gui.EnumWindows(enum_handler, None)
-        return result[0] if result else None
+        found = False
+        if KERNEL_32.Process32First(h_snapshot, ctypes.byref(entry)):
+            while True:
+                exe_name = entry.szExeFile.decode(errors='ignore')
+                if exe_name.lower() == process_name.lower():
+                    found = True
+                    break
+                if not KERNEL_32.Process32Next(h_snapshot, ctypes.byref(entry)):
+                    break
+
+        KERNEL_32.CloseHandle(h_snapshot)
+        return found
 
     def launch_and_move_window():
         global x_min, y_min, x_max, y_max
+        # noinspection SpellCheckingInspection
+        if is_process_running("sndvol.exe"):
+            return
         #noinspection SpellCheckingInspection
         proc = subprocess.Popen("sndvol", startupinfo=startupinfo, creationflags=subprocess.CREATE_NO_WINDOW)
         hw_nds = find_hwnd_by_pid(proc.pid)
@@ -265,10 +345,12 @@ def tray_icon():
         hwnd = win32gui.FindWindow(None, title)
         monitor = win32api.MonitorFromWindow(hwnd)
         mon_info = win32api.GetMonitorInfo(monitor)
-        moved = move_window_bottom_right(hwnd, mon_info)
+        # noinspection SpellCheckingInspection
+        moved = move_window_bottom_right(hwnd, mon_info, "sndvol")
 
         while not moved:
-            moved = move_window_bottom_right(hwnd, mon_info)
+            # noinspection SpellCheckingInspection
+            moved = move_window_bottom_right(hwnd, mon_info, "sndvol")
             time.sleep(0.1)
 
         while True:
@@ -294,18 +376,20 @@ def tray_icon():
 
     def sound_output():
         # noinspection SpellCheckingInspection
-        subprocess.Popen(["control.exe", "mmsys.cpl"],startupinfo=startupinfo,
-                         creationflags=subprocess.CREATE_NO_WINDOW)
+        subprocess.Popen(r"C:\Windows\System32\mmsys.cpl",startupinfo=startupinfo,
+                         creationflags=subprocess.CREATE_NO_WINDOW, shell=True)
+
         while True:
-            h_wnd = find_sound_window()
-            if h_wnd:
+            hwnd = user_32.FindWindowW("#32770", "Sound")
+
+            if hwnd and user_32.IsWindowVisible(hwnd):
+                user_32.ShowWindow(hwnd, 11) # Force minimize
                 break
-            time.sleep(0.1)
-        title = "Sound"
-        hwnd = win32gui.FindWindow(None, title)
+
         monitor = win32api.MonitorFromWindow(hwnd)
         mon_info = win32api.GetMonitorInfo(monitor)
-        move_window_bottom_right(hwnd, mon_info)
+        # noinspection SpellCheckingInspection
+        move_window_bottom_right(hwnd, mon_info, "mmsys")
 
     def shortcut_box_clicked(checked):
         global initial_flag, shortcut_thread_running, shortcut_thread
@@ -354,7 +438,7 @@ def tray_icon():
     app.setStyle("Fusion")
     app_settings = QSettings("7gxycn08@Github", "ClassicMixer")
     classic_tray = QSystemTrayIcon()
-    classic_tray.setToolTip("Classic Mixer v2.8")
+    classic_tray.setToolTip("Classic Mixer v2.9")
     classic_tray.setIcon(QIcon(r'Dependency\Resources\sound.ico'))
     module_available = is_module_installed("AudioDeviceCmdlets")
     signals = Signals()
