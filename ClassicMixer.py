@@ -6,10 +6,11 @@ import win32api
 import win32gui
 import win32con
 import subprocess
-import win32process
 import configparser
-from ctypes import wintypes
+import win32process
+import win32com.client
 from pynput import mouse
+from ctypes import wintypes
 from PySide6.QtGui import QIcon, QAction
 from PySide6.QtCore import Qt, QSettings, Signal, QObject, QThread
 from PySide6.QtWidgets import QMenu, QSystemTrayIcon, QApplication, QMessageBox
@@ -264,7 +265,9 @@ def tray_icon():
 
         win32gui.SetWindowPlacement(hwnd, tuple(placement))
         win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
-        win32gui.SetForegroundWindow(hwnd)
+        fg = win32gui.GetForegroundWindow()
+        if fg != hwnd:
+            win32gui.SetForegroundWindow(hwnd)
         # noinspection SpellCheckingInspection
         if custom_width != 0 and process == "sndvol":
             win32gui.SetWindowPos(
@@ -391,6 +394,62 @@ def tray_icon():
         # noinspection SpellCheckingInspection
         move_window_bottom_right(hwnd, mon_info, "mmsys")
 
+    def start_box_check(status):
+        if status:
+            add_to_startup()
+        else:
+            remove_start_shortcut()
+
+    def remove_start_shortcut():
+        if already_added_shortcut():
+            exe_name = "ClassicMixer"
+            shortcut_name = exe_name + '.lnk'
+
+            shell = win32com.client.Dispatch("WScript.Shell")
+            startup_folder = shell.SpecialFolders("Startup")
+            shortcut_path = os.path.join(startup_folder, shortcut_name)
+
+            if os.path.exists(shortcut_path):
+                os.remove(shortcut_path)
+
+    def already_added_shortcut():
+        exe_name = "ClassicMixer"
+        shortcut_name = exe_name + '.lnk'
+
+        shell = win32com.client.Dispatch("WScript.Shell")
+        startup_folder = shell.SpecialFolders("Startup")
+        shortcut_path = os.path.join(startup_folder, shortcut_name)
+
+        if os.path.exists(shortcut_path):
+            return True
+        else:
+            return False
+
+    def add_to_startup():
+        if not already_added_shortcut():
+            executable_name = "ClassicMixer.exe"
+            icon_path = fr"{os.getcwd()}\Resources\main.ico"
+
+            current_path = os.path.join(os.getcwd(), executable_name)
+
+            shell = win32com.client.Dispatch("WScript.Shell")
+            startup_folder = shell.SpecialFolders("Startup")
+            shortcut_path = os.path.join(startup_folder, executable_name.replace('.exe', '.lnk'))
+
+            shortcut = shell.CreateShortcut(shortcut_path)
+            shortcut.TargetPath = current_path
+            shortcut.WorkingDirectory = os.getcwd()
+            shortcut.IconLocation = icon_path
+            shortcut.save()
+
+    def start_box_clicked(checked):
+        app_settings.setValue("Start_at_boot", checked)
+        if start_box.isChecked():
+            add_to_startup()
+        else:
+            remove_start_shortcut()
+
+
     def shortcut_box_clicked(checked):
         global initial_flag, shortcut_thread_running, shortcut_thread
         app_settings.setValue("Enable_Shortcuts", checked)
@@ -438,7 +497,7 @@ def tray_icon():
     app.setStyle("Fusion")
     app_settings = QSettings("7gxycn08@Github", "ClassicMixer")
     classic_tray = QSystemTrayIcon()
-    classic_tray.setToolTip("Classic Mixer v2.9")
+    classic_tray.setToolTip("Classic Mixer v3.0")
     classic_tray.setIcon(QIcon(r'Dependency\Resources\sound.ico'))
     module_available = is_module_installed("AudioDeviceCmdlets")
     signals = Signals()
@@ -459,6 +518,13 @@ def tray_icon():
 
     sound_output_button = QAction(QIcon(r"Dependency\Resources\gear.ico"), 'Sound Output')
     sound_output_button.triggered.connect(sound_output)
+
+    start_box =  QAction("Start at Boot", menu)
+    start_box.setCheckable(True)
+    start_check = bool(app_settings.value("Start_at_boot", defaultValue=False, type=bool))
+    start_box.setChecked(start_check)
+    start_box.toggled.connect(lambda: start_box_clicked(start_box.isChecked()))
+    start_box_check(start_box.isChecked())
 
     shortcuts_box = QAction("Enable Shortcuts", menu)
     shortcuts_box.setCheckable(True)
@@ -482,7 +548,7 @@ def tray_icon():
     action_exit = QAction(QIcon(r"Dependency\Resources\exit.ico"), 'Exit')
     action_exit.triggered.connect(close_tray_icon)
 
-    menu.addActions([sound_output_button, shortcuts_box, movable_box, about_button, action_exit])
+    menu.addActions([sound_output_button, start_box, shortcuts_box, movable_box, about_button, action_exit])
 
     classic_tray.activated.connect(on_double_click)
     classic_tray.setContextMenu(menu)
