@@ -22,6 +22,11 @@ Restores Classic Volume Mixer On Windows 11 (sndvol).
 3. Supports ALL resolutions and screen sizes.
 
 
+4.Custom sndvol window width can be specified by user by editing `custom_size.ini` width is calculated in pixels.
+
+
+
+
 Compiled as a windows executable only using pyinstaller check `releases` or self compile.
 
 
