@@ -45,7 +45,7 @@ For keyboard shortcuts toggle `Enable Shortcuts` from system tray.
 To disable auto close mixer when clicking away toggle `Movable Audio Window` from system tray.
 
 
-You can use Windows Task Scheduler to run at startup.
+Can run at windows startup.
 
 
 ## Contributing
