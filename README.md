@@ -24,6 +24,9 @@ Restores Classic Volume Mixer On Windows 11 (sndvol).
 4. Custom sndvol window width can be specified by user by editing `custom_size.ini` width is calculated in pixels.
 
 
+5. Supports all task bar locations top,bottom,left,right sndvol adjusts window placement dynamically.
+
+
 
 
 Compiled as a windows executable only using pyinstaller check `releases` or self compile.
