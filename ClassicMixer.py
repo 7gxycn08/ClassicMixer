@@ -236,26 +236,53 @@ def tray_icon():
                 time.sleep(0.1)
         return hwnd_list
 
-    def move_window_bottom_right(hwnd, mon_info, process):
+    def move_window_dynamic(hwnd, mon_info, process):
         """
-        Moves the window with the given title to the bottom-right corner of its monitor.
+        Moves the window to the corner opposite of the taskbar placement.
         """
         if not hwnd:
             return False
 
-        # Get window size
+        # Get current window size
         placement = list(win32gui.GetWindowPlacement(hwnd))
         left, top, right, bottom = placement[4]
         width = right - left
         height = bottom - top
 
-        # Get monitor containing the window
-        mon_rect = mon_info['Work']  # Work area excludes taskbar: (left, top, right, bottom)
+        # Work area (excludes taskbar), Full area (entire screen)
+        # Format: (left, top, right, bottom)
+        work = mon_info['Work']
+        full = mon_info['Monitor']
 
-        # Calculate bottom-right position
-        new_x = mon_rect[2] - width
-        new_y = mon_rect[3] - height
+        # Detect Taskbar Position
+        taskbar_top = work[1] > full[1]
+        taskbar_bottom = work[3] < full[3]
+        taskbar_left = work[0] > full[0]
+        taskbar_right = work[2] < full[2]
 
+        # DEFAULT: Bottom Right
+        new_x = work[2] - width
+        new_y = work[3] - height
+
+        # DYNAMIC LOGIC: Move opposite of taskbar
+        if taskbar_right:
+            # Taskbar is on the right -> Move to LEFT
+            new_x = work[2] - width
+            new_y = work[3] - height  # Keep it bottom unless top taskbar exists
+        elif taskbar_left:
+            # Taskbar is on the left -> Move to RIGHT
+            new_x = work[1]
+            new_y = work[3] - height  # Keep it bottom unless top taskbar exists
+        elif taskbar_top:
+            # Taskbar is on top -> Move to BOTTOM RIGHT
+            new_x = work[2] - width
+            new_y = work[0]
+        elif taskbar_bottom:
+            # Taskbar is on bottom -> Move to TOP RIGHT
+            new_x = work[2] - width
+            new_y = work[3] - height
+
+        # Apply the calculated position
         placement[4] = (
             new_x,
             new_y,
@@ -265,11 +292,17 @@ def tray_icon():
 
         win32gui.SetWindowPlacement(hwnd, tuple(placement))
         win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+
+        # Focus window
         fg = win32gui.GetForegroundWindow()
         if fg != hwnd:
             win32gui.SetForegroundWindow(hwnd)
+
+        # Special handling for (Volume Mixer) resize logic
+        # Assuming custom_width is defined globally or passed in
+        global custom_width
         # noinspection SpellCheckingInspection
-        if custom_width != 0 and process == "sndvol":
+        if 'custom_width' in globals() and custom_width != 0 and process == "sndvol":
             win32gui.SetWindowPos(
                 hwnd,
                 None,
@@ -279,37 +312,33 @@ def tray_icon():
                 0,
                 win32con.SWP_NOMOVE | win32con.SWP_NOZORDER
             )
-            # Actual rect after resize
+
+            # Re-calculate bounds after the resize to ensure it's still on screen
             left, top, right, bottom = win32gui.GetWindowRect(hwnd)
-            # Monitor work area
-            mon_left, mon_top, mon_right, mon_bottom = mon_info['Work']
+            mon_left, mon_top, mon_right, mon_bottom = work
 
-            new_x = left
-            new_y = top
+            adj_x, adj_y = left, top
 
-            # Push window back inside monitor without changing size
             if right > mon_right:
-                new_x -= right - mon_right
-
+                adj_x -= right - mon_right
             if bottom > mon_bottom:
-                new_y -= bottom - mon_bottom
-
+                adj_y -= bottom - mon_bottom
             if left < mon_left:
-                new_x += mon_left - left
-
+                adj_x += mon_left - left
             if top < mon_top:
-                new_y += mon_top - top
-            # Move ONLY
-            if new_x != left or new_y != top:
+                adj_y += mon_top - top
+
+            if adj_x != left or adj_y != top:
                 win32gui.SetWindowPos(
                     hwnd,
                     None,
-                    new_x,
-                    new_y,
+                    adj_x,
+                    adj_y,
                     0,
                     0,
                     win32con.SWP_NOSIZE | win32con.SWP_NOZORDER
                 )
+
         return True
 
     def is_process_running(process_name: str) -> bool:
@@ -349,11 +378,11 @@ def tray_icon():
         monitor = win32api.MonitorFromWindow(hwnd)
         mon_info = win32api.GetMonitorInfo(monitor)
         # noinspection SpellCheckingInspection
-        moved = move_window_bottom_right(hwnd, mon_info, "sndvol")
+        moved = move_window_dynamic(hwnd, mon_info, "sndvol")
 
         while not moved:
             # noinspection SpellCheckingInspection
-            moved = move_window_bottom_right(hwnd, mon_info, "sndvol")
+            moved = move_window_dynamic(hwnd, mon_info, "sndvol")
             time.sleep(0.1)
 
         while True:
@@ -392,7 +421,7 @@ def tray_icon():
         monitor = win32api.MonitorFromWindow(hwnd)
         mon_info = win32api.GetMonitorInfo(monitor)
         # noinspection SpellCheckingInspection
-        move_window_bottom_right(hwnd, mon_info, "mmsys")
+        move_window_dynamic(hwnd, mon_info, "mmsys")
 
     def start_box_check(status):
         if status:
@@ -497,7 +526,7 @@ def tray_icon():
     app.setStyle("Fusion")
     app_settings = QSettings("7gxycn08@Github", "ClassicMixer")
     classic_tray = QSystemTrayIcon()
-    classic_tray.setToolTip("Classic Mixer v3.0")
+    classic_tray.setToolTip("Classic Mixer v3.1")
     classic_tray.setIcon(QIcon(r'Dependency\Resources\sound.ico'))
     module_available = is_module_installed("AudioDeviceCmdlets")
     signals = Signals()
