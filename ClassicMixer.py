@@ -221,9 +221,9 @@ def tray_icon():
         # Return the first match found, or None if empty
         return target_list[0] if target_list else None
 
-    def on_click(x, y, _, moveable):
+    def on_click(x, y, _, __):
         global flag
-        if moveable:
+        if movable:
             flag = False
             return
 
