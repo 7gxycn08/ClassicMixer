@@ -236,6 +236,7 @@ def tray_icon():
             if not (left <= x <= right and top <= y <= bottom):
                 # noinspection SpellCheckingInspection
                 subprocess.call('taskkill /im sndvol.exe /F', creationflags=subprocess.CREATE_NO_WINDOW)
+                flag = False
         else:
             pass
 
