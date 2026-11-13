@@ -180,6 +180,7 @@ def tray_icon():
         global shortcut_thread_running
         shortcut_thread_running = False
         shortcut_thread.wait()
+        move_thread.wait()
         classic_tray.hide()
         app.exit()
         sys.exit()
@@ -190,20 +191,53 @@ def tray_icon():
             launch_and_move_window()
             flag = True
 
-    def on_click(x, y, _, pressed):
-        global flag, movable,x_min,x_max,y_min,y_max
-        if movable:
+    # noinspection SpellCheckingInspection
+    def get_sndvol_window(hwnd, extra):
+        """
+        Callback function used by EnumWindows.
+        'extra' is a list used to store the found hwnd.
+        """
+        # Get the window title and class
+        title = win32gui.GetWindowText(hwnd)
+        class_name = win32gui.GetClassName(hwnd)
+
+        # Search for "Volume Mixer" in title OR common sndvol class names
+        if "Volume Mixer" in title or class_name == "VolumeMixer":
+            # Only pick windows that are actually visible
+            if win32gui.IsWindowVisible(hwnd):
+                extra.append(hwnd)  # Store the handle in the list
+
+    # noinspection SpellCheckingInspection
+    def find_sndvol_hwnd():
+        """
+        Searches all open windows to find one that matches the Volume Mixer.
+        """
+        target_list = []  # This acts as our container for the result
+
+        # Enumerate all top-level windows
+        # Pass target_list as the 'extra' parameter to the callback
+        win32gui.EnumWindows(get_sndvol_window, target_list)
+
+        # Return the first match found, or None if empty
+        return target_list[0] if target_list else None
+
+    def on_click(x, y, _, moveable):
+        global flag
+        if moveable:
             flag = False
             return
 
-        else:
-            if pressed:
-                x_min, x_max = min(x_min, x_max), max(x_min, x_max) # noqa
-                y_min, y_max = min(y_min, y_max), max(y_min, y_max) # noqa
-                if not (x_min <= x <= x_max and y_min <= y <= y_max):
-                    subprocess.call('taskkill /im sndvol.exe /F', creationflags=0x08000000)  # noqa
-                    flag = False
+        hwnd = find_sndvol_hwnd()
+        if hwnd:
+            # Get the current window coordinates
+            left, top, right, bottom = win32gui.GetWindowRect(hwnd)
 
+            # Check if the click is OUTSIDE the box
+            if not (left <= x <= right and top <= y <= bottom):
+                # noinspection SpellCheckingInspection
+                subprocess.call('taskkill /im sndvol.exe /F', creationflags=subprocess.CREATE_NO_WINDOW)
+        else:
+            pass
 
     def start_mouse_listener():
         global flag
@@ -526,7 +560,7 @@ def tray_icon():
     app.setStyle("Fusion")
     app_settings = QSettings("7gxycn08@Github", "ClassicMixer")
     classic_tray = QSystemTrayIcon()
-    classic_tray.setToolTip("Classic Mixer v3.1")
+    classic_tray.setToolTip("Classic Mixer v3.2")
     classic_tray.setIcon(QIcon(r'Dependency\Resources\sound.ico'))
     module_available = is_module_installed("AudioDeviceCmdlets")
     signals = Signals()
